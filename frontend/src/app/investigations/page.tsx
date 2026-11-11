@@ -71,7 +71,10 @@ export default function InvestigationsPage() {
   const [selectedPrediction, setSelectedPrediction] =
     useState<Prediction | null>(null);
 
-  const predictions = analysis?.data.predictions ?? [];
+  const predictions = useMemo(
+    () => analysis?.data.predictions ?? [],
+    [analysis]
+  );
 
   // -------------------------------------------------------
   // CLASSIFICATION COUNTS
@@ -158,7 +161,6 @@ export default function InvestigationsPage() {
 
   return (
     <main className="min-h-screen space-y-7 px-5 py-7 sm:px-8 lg:px-10">
-
       {/* PAGE HEADING */}
 
       <section>
@@ -175,7 +177,7 @@ export default function InvestigationsPage() {
 
             <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-500">
               Review cloud cases, investigate anomaly classifications
-              and inspect the model's estimated class probabilities.
+              and inspect the model&apos;s estimated class probabilities.
             </p>
           </div>
 
@@ -223,7 +225,6 @@ export default function InvestigationsPage() {
       {/* SUMMARY CARDS */}
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-
         <div className="rounded-xl border border-slate-200 bg-white p-5">
           <div className="flex items-center justify-between">
             <p className="text-xs text-slate-500">
@@ -295,7 +296,6 @@ export default function InvestigationsPage() {
             Malicious event classifications
           </p>
         </div>
-
       </section>
 
       {/* CLASSIFICATION DISTRIBUTION */}
@@ -362,7 +362,6 @@ export default function InvestigationsPage() {
       {/* CASE SEARCH AND FILTER */}
 
       <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
-
         <div className="border-b border-slate-200 p-5">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
@@ -426,7 +425,6 @@ export default function InvestigationsPage() {
 
         <div className="overflow-x-auto">
           <table className="w-full min-w-[750px] text-left">
-
             <thead className="bg-slate-50">
               <tr>
                 <th className="px-5 py-4 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
@@ -452,7 +450,6 @@ export default function InvestigationsPage() {
             </thead>
 
             <tbody className="divide-y divide-slate-100">
-
               {filteredPredictions.map((prediction) => {
                 const Icon = getClassIcon(
                   prediction.predicted_class
@@ -537,7 +534,6 @@ export default function InvestigationsPage() {
                   </td>
                 </tr>
               )}
-
             </tbody>
           </table>
         </div>
@@ -547,7 +543,6 @@ export default function InvestigationsPage() {
 
       {selectedPrediction && (
         <section className="rounded-xl border border-blue-200 bg-white shadow-sm">
-
           <div className="flex flex-wrap items-start justify-between gap-4 border-b border-slate-200 p-5">
             <div>
               <div className="mb-2 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-blue-700">
@@ -575,7 +570,6 @@ export default function InvestigationsPage() {
           </div>
 
           <div className="grid gap-5 p-5 lg:grid-cols-2">
-
             {/* SELECTED CLASS */}
 
             <div className="rounded-lg border border-slate-200 p-5">
@@ -600,7 +594,7 @@ export default function InvestigationsPage() {
               </p>
 
               <p className="mt-2 text-[10px] leading-relaxed text-slate-400">
-                Confidence is the model's estimated probability
+                Confidence is the model&apos;s estimated probability
                 for the predicted class. It is not a verified
                 measure of detection accuracy.
               </p>
@@ -665,7 +659,6 @@ export default function InvestigationsPage() {
                 })}
               </div>
             </div>
-
           </div>
 
           <div className="border-t border-slate-100 bg-slate-50 px-5 py-4">
@@ -694,7 +687,6 @@ export default function InvestigationsPage() {
           will clear the current in-memory results.
         </p>
       </div>
-
     </main>
   );
 }

@@ -598,7 +598,7 @@ export default function ModelPerformancePage() {
               Malicious-event detection analysis
             </h2>
             <p className="mt-1 text-xs text-slate-500">
-              Evaluation of the selected model's ability to identify malicious cases.
+              Evaluation of the selected model&apos;s ability to identify malicious cases.
             </p>
           </div>
         </div>

@@ -1,7 +1,6 @@
-
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -37,11 +36,9 @@ import {
   type AnalysisSummary,
 } from "@/components/analysis-provider";
 
-
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ||
   "http://127.0.0.1:8000";
-
 
 // ---------------------------------------------------------
 // DATA TYPES
@@ -70,6 +67,48 @@ type ModelInfo = {
   status: string;
 };
 
+type DashboardData = {
+  summary: DashboardSummary;
+  modelInfo: ModelInfo | null;
+  backendOnline: boolean;
+};
+
+// Fetch dashboard data without changing React state.
+// State updates happen after the asynchronous request completes.
+async function fetchDashboardData(): Promise<DashboardData> {
+  const [summaryResponse, modelResponse, healthResponse] =
+    await Promise.all([
+      fetch(`${API_BASE_URL}/api/v1/dashboard/summary`, {
+        cache: "no-store",
+      }),
+      fetch(`${API_BASE_URL}/api/v1/model/info`, {
+        cache: "no-store",
+      }).catch(() => null),
+      fetch(`${API_BASE_URL}/api/v1/health`, {
+        cache: "no-store",
+      }).catch(() => null),
+    ]);
+
+  if (!summaryResponse.ok) {
+    throw new Error(
+      `Dashboard API returned HTTP ${summaryResponse.status}.`
+    );
+  }
+
+  const summary: DashboardSummary = await summaryResponse.json();
+
+  let modelInfo: ModelInfo | null = null;
+
+  if (modelResponse?.ok) {
+    modelInfo = await modelResponse.json();
+  }
+
+  return {
+    summary,
+    modelInfo,
+    backendOnline: healthResponse?.ok === true,
+  };
+}
 
 // ---------------------------------------------------------
 // HELPERS
@@ -94,7 +133,6 @@ function formatDate(value: string | undefined) {
   });
 }
 
-
 // ---------------------------------------------------------
 // REUSABLE STAT CARD
 // ---------------------------------------------------------
@@ -114,7 +152,6 @@ function StatCard({
 }) {
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
-
       <div className="flex items-center justify-between gap-3">
         <p className="text-xs font-medium text-slate-500">
           {title}
@@ -132,11 +169,9 @@ function StatCard({
       <p className="mt-1 text-xs text-slate-400">
         {description}
       </p>
-
     </div>
   );
 }
-
 
 // ---------------------------------------------------------
 // OVERVIEW DASHBOARD
@@ -167,68 +202,60 @@ export default function OverviewPage() {
   const [openError, setOpenError] =
     useState<string | null>(null);
 
+  // -------------------------------------------------------
+  // INITIAL LOAD
+  // -------------------------------------------------------
+
+  useEffect(() => {
+    let isActive = true;
+
+    fetchDashboardData()
+      .then((data) => {
+        if (!isActive) return;
+
+        setSummary(data.summary);
+        setModelInfo(data.modelInfo);
+        setBackendOnline(data.backendOnline);
+        setError(null);
+      })
+      .catch((err: unknown) => {
+        if (!isActive) return;
+
+        setSummary(null);
+        setModelInfo(null);
+        setBackendOnline(false);
+
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Unable to load dashboard information."
+        );
+      })
+      .finally(() => {
+        if (isActive) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
 
   // -------------------------------------------------------
-  // LOAD LIVE DASHBOARD DATA
+  // MANUAL REFRESH
   // -------------------------------------------------------
 
-  const loadDashboard = useCallback(async () => {
+  async function handleRefreshDashboard() {
     setLoading(true);
     setError(null);
 
     try {
-      const [
-        summaryResponse,
-        modelResponse,
-        healthResponse,
-      ] = await Promise.all([
-        fetch(
-          `${API_BASE_URL}/api/v1/dashboard/summary`,
-          {
-            cache: "no-store",
-          }
-        ),
+      const data = await fetchDashboardData();
 
-        fetch(
-          `${API_BASE_URL}/api/v1/model/info`,
-          {
-            cache: "no-store",
-          }
-        ).catch(() => null),
-
-        fetch(
-          `${API_BASE_URL}/api/v1/health`,
-          {
-            cache: "no-store",
-          }
-        ).catch(() => null),
-      ]);
-
-      if (!summaryResponse.ok) {
-        throw new Error(
-          `Dashboard API returned HTTP ${summaryResponse.status}.`
-        );
-      }
-
-      const summaryData: DashboardSummary =
-        await summaryResponse.json();
-
-      setSummary(summaryData);
-
-      // Model information is optional for the dashboard.
-      if (modelResponse?.ok) {
-        const modelData: ModelInfo =
-          await modelResponse.json();
-
-        setModelInfo(modelData);
-      } else {
-        setModelInfo(null);
-      }
-
-      setBackendOnline(
-        healthResponse?.ok === true
-      );
-
+      setSummary(data.summary);
+      setModelInfo(data.modelInfo);
+      setBackendOnline(data.backendOnline);
     } catch (err) {
       setSummary(null);
       setModelInfo(null);
@@ -242,17 +269,7 @@ export default function OverviewPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
-
-
-  // -------------------------------------------------------
-  // INITIAL LOAD
-  // -------------------------------------------------------
-
-  useEffect(() => {
-    void loadDashboard();
-  }, [loadDashboard]);
-
+  }
 
   // -------------------------------------------------------
   // REOPEN SAVED ANALYSIS
@@ -274,7 +291,6 @@ export default function OverviewPage() {
       );
     }
   }
-
 
   // -------------------------------------------------------
   // PREPARE CLASSIFICATION CHART DATA
@@ -298,7 +314,6 @@ export default function OverviewPage() {
         },
       ]
     : [];
-
 
   // -------------------------------------------------------
   // LOADING STATE
@@ -325,7 +340,6 @@ export default function OverviewPage() {
     );
   }
 
-
   // -------------------------------------------------------
   // ERROR STATE
   // -------------------------------------------------------
@@ -334,7 +348,6 @@ export default function OverviewPage() {
     return (
       <main className="px-5 py-10 sm:px-8 lg:px-10">
         <section className="mx-auto max-w-2xl rounded-xl border border-red-200 bg-white p-8 text-center">
-
           <XCircle
             size={30}
             className="mx-auto text-red-500"
@@ -349,18 +362,16 @@ export default function OverviewPage() {
           </p>
 
           <button
-            onClick={() => void loadDashboard()}
+            onClick={() => void handleRefreshDashboard()}
             className="mt-6 inline-flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-3 text-xs font-semibold text-white hover:bg-blue-700"
           >
             <RefreshCw size={14} />
             Retry connection
           </button>
-
         </section>
       </main>
     );
   }
-
 
   // -------------------------------------------------------
   // MAIN DASHBOARD
@@ -368,7 +379,6 @@ export default function OverviewPage() {
 
   return (
     <main className="min-h-screen space-y-7 px-5 py-7 sm:px-8 lg:px-10">
-
       {/* PAGE HEADER */}
 
       <section>
@@ -378,7 +388,6 @@ export default function OverviewPage() {
         </div>
 
         <div className="flex flex-wrap items-start justify-between gap-4">
-
           <div>
             <h1 className="text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
               Overview
@@ -391,7 +400,6 @@ export default function OverviewPage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-
             <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600">
               {backendOnline ? (
                 <>
@@ -407,7 +415,7 @@ export default function OverviewPage() {
             </div>
 
             <button
-              onClick={() => void loadDashboard()}
+              onClick={() => void handleRefreshDashboard()}
               disabled={loading}
               className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
             >
@@ -417,11 +425,9 @@ export default function OverviewPage() {
               />
               Refresh
             </button>
-
           </div>
         </div>
       </section>
-
 
       {/* ERROR BANNER */}
 
@@ -432,7 +438,6 @@ export default function OverviewPage() {
           </p>
         </section>
       )}
-
 
       {/* PRIMARY STATISTICS */}
 
@@ -454,7 +459,6 @@ export default function OverviewPage() {
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-
           <StatCard
             title="Saved analyses"
             value={formatNumber(summary?.total_analyses ?? 0)}
@@ -492,7 +496,6 @@ export default function OverviewPage() {
             icon={ShieldAlert}
             iconColor="text-red-600"
           />
-
         </div>
 
         <p className="mt-3 text-[10px] leading-relaxed text-slate-400">
@@ -501,15 +504,12 @@ export default function OverviewPage() {
         </p>
       </section>
 
-
       {/* CLASSIFICATION AND MODEL STATUS */}
 
       <section className="grid gap-5 xl:grid-cols-3">
-
         {/* CLASSIFICATION CHART */}
 
         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm xl:col-span-2">
-
           <div className="mb-5">
             <h2 className="text-sm font-semibold text-slate-900">
               Prediction distribution
@@ -615,14 +615,11 @@ export default function OverviewPage() {
               </div>
             ))}
           </div>
-
         </div>
-
 
         {/* MODEL STATUS */}
 
         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold text-slate-900">
               Active model
@@ -655,7 +652,6 @@ export default function OverviewPage() {
               </div>
 
               <div className="mt-5 space-y-4">
-
                 <div className="flex justify-between gap-3">
                   <span className="text-xs text-slate-500">
                     Numerical features
@@ -695,7 +691,6 @@ export default function OverviewPage() {
                     {formatNumber(modelInfo.training_cases)}
                   </span>
                 </div>
-
               </div>
 
               <div className="mt-5 border-t border-slate-100 pt-4">
@@ -731,17 +726,13 @@ export default function OverviewPage() {
             View model evaluation
             <ArrowRight size={14} />
           </Link>
-
         </div>
       </section>
-
 
       {/* RECENT ANALYSES */}
 
       <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 p-5">
-
           <div>
             <h2 className="text-sm font-semibold text-slate-900">
               Recent analyses
@@ -759,18 +750,15 @@ export default function OverviewPage() {
             View all history
             <ArrowRight size={13} />
           </Link>
-
         </div>
 
         {summary?.recent_analyses.length ? (
           <div className="divide-y divide-slate-100">
-
             {summary.recent_analyses.map((item) => (
               <div
                 key={item.id}
                 className="flex flex-col gap-4 p-5 transition hover:bg-slate-50 sm:flex-row sm:items-center sm:justify-between"
               >
-
                 <div className="flex min-w-0 items-start gap-3">
                   <div className="rounded-lg bg-blue-50 p-3 text-blue-600">
                     <FileText size={20} />
@@ -822,10 +810,8 @@ export default function OverviewPage() {
                     </>
                   )}
                 </button>
-
               </div>
             ))}
-
           </div>
         ) : (
           <div className="p-10 text-center">
@@ -855,9 +841,7 @@ export default function OverviewPage() {
             </p>
           </div>
         )}
-
       </section>
-
 
       {/* QUICK ACTIONS */}
 
@@ -873,7 +857,6 @@ export default function OverviewPage() {
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-
           {[
             {
               title: "Upload dataset",
@@ -929,10 +912,8 @@ export default function OverviewPage() {
               </Link>
             );
           })}
-
         </div>
       </section>
-
 
       {/* DASHBOARD FOOTNOTE */}
 
@@ -950,7 +931,6 @@ export default function OverviewPage() {
           the Model Performance section.
         </p>
       </section>
-
     </main>
   );
 }

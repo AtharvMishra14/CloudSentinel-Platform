@@ -10,7 +10,8 @@ import {
   Server,
 } from "lucide-react";
 
-const API_URL = "http://127.0.0.1:8000";
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
 
 type HealthResponse = {
   status: string;
@@ -19,31 +20,70 @@ type HealthResponse = {
   timestamp: string;
 };
 
+async function requestHealth(): Promise<HealthResponse> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/health`, {
+    method: "GET",
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw new Error(`API returned HTTP ${response.status}`);
+  }
+
+  const data: HealthResponse = await response.json();
+
+  if (data.status !== "ok") {
+    throw new Error("Backend returned an unexpected health status.");
+  }
+
+  return data;
+}
+
 export default function ApiStatusPage() {
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadInitialHealth() {
+      try {
+        const data = await requestHealth();
+
+        if (active) {
+          setHealth(data);
+          setError(null);
+        }
+      } catch (err) {
+        if (active) {
+          setHealth(null);
+          setError(
+            err instanceof Error
+              ? err.message
+              : "Unable to connect to the backend."
+          );
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    }
+
+    void loadInitialHealth();
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const checkHealth = useCallback(async () => {
     setLoading(true);
     setError(null);
 
     try {
-      const response = await fetch(`${API_URL}/api/v1/health`, {
-        method: "GET",
-        cache: "no-store",
-      });
-
-      if (!response.ok) {
-        throw new Error(`API returned HTTP ${response.status}`);
-      }
-
-      const data: HealthResponse = await response.json();
-
-      if (data.status !== "ok") {
-        throw new Error("Backend returned an unexpected health status.");
-      }
-
+      const data = await requestHealth();
       setHealth(data);
     } catch (err) {
       setHealth(null);
@@ -56,10 +96,6 @@ export default function ApiStatusPage() {
       setLoading(false);
     }
   }, []);
-
-  useEffect(() => {
-    void checkHealth();
-  }, [checkHealth]);
 
   return (
     <main className="min-h-[calc(100vh-80px)] px-5 py-8 sm:px-8 lg:px-10">
@@ -90,8 +126,9 @@ export default function ApiStatusPage() {
                 <h2 className="text-sm font-semibold text-slate-900">
                   FastAPI backend
                 </h2>
+
                 <p className="mt-1 text-xs text-slate-500">
-                  {API_URL}
+                  {API_BASE_URL}
                 </p>
               </div>
             </div>
@@ -129,7 +166,8 @@ export default function ApiStatusPage() {
                   </p>
 
                   <p className="mt-2 text-xs text-slate-500">
-                    Make sure the FastAPI server is running on port 8000.
+                    Make sure the FastAPI server is running and the configured
+                    backend address is correct.
                   </p>
                 </div>
               </div>

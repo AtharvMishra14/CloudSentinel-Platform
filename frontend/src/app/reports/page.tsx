@@ -1,4 +1,3 @@
-
 "use client";
 
 import Link from "next/link";
@@ -6,7 +5,6 @@ import { useMemo } from "react";
 import {
   Activity,
   AlertTriangle,
-  BarChart3,
   CheckCircle2,
   Clock3,
   Database,
@@ -128,7 +126,10 @@ function buildReport(
 export default function ReportsPage() {
   const { analysis } = useAnalysis();
 
-  const predictions = analysis?.data.predictions ?? [];
+  const predictions = useMemo(
+    () => analysis?.data.predictions ?? [],
+    [analysis]
+  );
 
   const classificationSummary = useMemo(
     () =>
@@ -264,10 +265,6 @@ export default function ReportsPage() {
 
   const maliciousCount =
     classificationSummary[2].count;
-
-  const reportName = getSafeFilename(
-    analysis.file_name
-  );
 
   return (
     <main className="min-h-screen space-y-7 px-5 py-7 sm:px-8 lg:px-10">
